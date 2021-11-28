@@ -1,4 +1,5 @@
 #include "Entropy/Entropy.h"
+#include "LCDKeypad.h"
 
 void setup() {}
 
