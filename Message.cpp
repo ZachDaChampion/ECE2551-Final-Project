@@ -1,9 +1,5 @@
 #include "Message.h"
 
-#include <cstring>
-
-using namespace std;
-
 Message::Message() : from(new unsigned char[5]()), to(new unsigned char[5]()), payload(0), length(0) {}
 
 Message::Message(unsigned char* from, unsigned char* to, unsigned short payload, unsigned char length)
