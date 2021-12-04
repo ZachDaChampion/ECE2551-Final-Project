@@ -1,5 +1,7 @@
 #include "Contact.h"
 
+#include <Arduino.h>
+
 Contact::Contact() {
   uuid = new unsigned char[5]();
   name = new char[10]();
