@@ -1,15 +1,17 @@
 #include "Message.h"
 
-Message::Message() : from(new unsigned char[5]()), to(new unsigned char[5]()), payload(0), length(0) {}
+#include <Arduino.h>
+
+Message::Message() : from(new unsigned char[5]), to(new unsigned char[5]), payload(0), length(0) {}
 
 Message::Message(unsigned char* from, unsigned char* to, unsigned short payload, unsigned char length)
-    : from(new unsigned char[5]()), to(new unsigned char[5]()), payload(payload), length(length) {
+    : from(new unsigned char[5]), to(new unsigned char[5]), payload(payload), length(length) {
   setFrom(from);
   setTo(to);
 }
 
 Message::Message(unsigned char* from, unsigned char* to, char const* message)
-    : from(new unsigned char[5]()), to(new unsigned char[5]()) {
+    : from(new unsigned char[5]), to(new unsigned char[5]) {
   setFrom(from);
   setTo(to);
   length = 0;
@@ -24,8 +26,8 @@ Message::Message(unsigned char* from, unsigned char* to, char const* message)
 }
 
 void Message::setLength(unsigned char length) { this->length = length; }
-void Message::setTo(unsigned char* length) { memcpy(this->to, to, 5); }
-void Message::setFrom(unsigned char* length) { memcpy(this->from, from, 5); }
+void Message::setTo(unsigned char* to) { memcpy(this->to, to, 5); }
+void Message::setFrom(unsigned char* from) { memcpy(this->from, from, 5); }
 void Message::setPayload(unsigned short payload) { this->payload = payload; }
 
 unsigned char Message::getLength() { return length; }
