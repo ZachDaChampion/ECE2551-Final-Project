@@ -19,6 +19,8 @@ class LCDKeypad : public LiquidCrystal {
   // get which button is currently pressed
   Button getButtonPress();
 
+  void clearLine(unsigned char line);
+
  private:
   unsigned long long lastButtonUpdate;
   uint8_t buttonPin;
