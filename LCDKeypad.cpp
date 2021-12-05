@@ -16,9 +16,8 @@ LCDKeypad::Button BUTTONS[6] = {LCDKeypad::Button::UP,
                                 LCDKeypad::Button::SELECT};
 
 LCDKeypad::LCDKeypad(uint8_t rs, uint8_t enable,
-                     uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                      uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7, uint8_t btn)
-    : LiquidCrystal(rs, enable, d0, d1, d2, d3, d4, d5, d6, d7), lastButtonUpdate(0), buttonPin(btn) {}
+    : LiquidCrystal(rs, enable, d4, d5, d6, d7), lastButtonUpdate(0), buttonPin(btn) {}
 
 LCDKeypad::Button LCDKeypad::getButtonPress() {
   unsigned long long currentTime = millis();
