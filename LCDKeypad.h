@@ -10,10 +10,10 @@ class LCDKeypad : public LiquidCrystal {
 
   // identifies a button by its approximate analog value
   enum class Button : unsigned short { RIGHT = 0,
-                                       UP = 145,
-                                       DOWN = 329,
-                                       LEFT = 505,
-                                       SELECT = 741,
+                                       UP = 100,
+                                       DOWN = 257,
+                                       LEFT = 410,
+                                       SELECT = 640,
                                        NONE = 1023 };
 
   // get which button is currently pressed

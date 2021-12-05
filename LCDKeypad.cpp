@@ -21,18 +21,18 @@ LCDKeypad::LCDKeypad(uint8_t rs, uint8_t enable,
 
 LCDKeypad::Button LCDKeypad::getButtonPress() {
   unsigned long long currentTime = millis();
+  unsigned short analogValue = analogRead(buttonPin);
 
-  // ensure enough time has passed since the last button press
-  if (currentTime - lastButtonUpdate > DEBOUNCE_TIME) {
-    lastButtonUpdate = currentTime;
-
-    unsigned short analogValue = analogRead(buttonPin);
-
-    // check if each button is pressed and, if so, return the button
-    for (Button btn : BUTTONS) {
-      unsigned short diff = analogValue - static_cast<unsigned short>(btn);
-      if (abs(diff) < MAX_VALUE_ERROR)
+  // check if each button is pressed and, if so, return the button
+  for (Button btn : BUTTONS) {
+    unsigned short diff = analogValue - static_cast<unsigned short>(btn);
+    if (abs(diff) < MAX_VALUE_ERROR) {
+      // only return button press if debounce time has passed
+      if (currentTime - lastButtonUpdate > DEBOUNCE_TIME) {
+        lastButtonUpdate = currentTime;
         return btn;
+      }
+      lastButtonUpdate = currentTime;
     }
   }
 
