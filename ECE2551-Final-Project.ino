@@ -1,12 +1,18 @@
+#define ENABLE_MEMORY 0
+#define ENABLE_RADIO 0
+
 #include "Contact.h"
 #include "Entropy/Entropy.h"
 #include "LCDKeypad.h"
-#include "Memory.h"
 #include "Message.h"
-#include "RF24.h"
 
-#define ENABLE_MEMORY 0
-#define ENABLE_RADIO 0
+#ifdef ENABLE_MEMORY
+#include "Memory.h"
+#endif
+
+#ifdef ENABLE_RADIO
+#include "RF24.h"
+#endif
 
 // NR24 radio pins
 const uint8_t RADIO_CE_PIN = A1;
@@ -323,22 +329,21 @@ const State STATE_CONTACTS = {
 const State STATE_MESSAGES = {
     .enter = []() {
       Serial.println("MESSAGES");
-      lcdKeypad.clear();
+      menuIndex = 0;
       bool from = 0;
+      lcdKeypad.clear();
       if (messageCount) {
         from = memcmp(myUUID, messages[menuIndex].getFrom(), 5) == 0;
         lcdKeypad.print("Message:      [");
         lcdKeypad.print(from ? 'S' : 'R');
-      }
-      else lcdKeypad.print("Message:");
+      } else
+        lcdKeypad.print("Message:");
       lcdKeypad.setCursor(0, 1);
       if (messageCount) {
         lcdKeypad.print("1. ");
-                lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
-      }
-      else lcdKeypad.print("No messages");
-
-      menuIndex = 0; },
+        lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
+      } else
+        lcdKeypad.print("No messages"); },
 
     .loop = []() {
         LCDKeypad::Button button = lcdKeypad.getButtonPress();
