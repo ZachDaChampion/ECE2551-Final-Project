@@ -1,0 +1,23 @@
+#ifndef STATE_MACHINE_H_
+#define STATE_MACHINE_H_
+
+// states that state machine can be in
+enum class State {
+  SETUP,
+  MENU,
+  CONTACTS,
+  MESSAGES,
+  NEW_CONTACT,
+  NEW_CONTACT_NAME,
+  NEW_CONTACT_UUID,
+  CONTACT_ADDED,
+  LIST_FULL,
+  ABOUT_ME,
+  NEW_MESSAGE,
+  MESSAGE_SENT,
+  MESSAGE_FAILED,
+  MESSAGE_OPEN,
+  MESSAGE_RECEIVED
+};
+
+#endif
