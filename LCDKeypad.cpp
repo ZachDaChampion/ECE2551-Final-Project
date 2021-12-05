@@ -39,3 +39,9 @@ LCDKeypad::Button LCDKeypad::getButtonPress() {
   // base case
   return Button::NONE;
 }
+
+void LCDKeypad::clearLine(unsigned char line) {
+  setCursor(0, line);
+  print("                ");
+  setCursor(0, line);
+}
