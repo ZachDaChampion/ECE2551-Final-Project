@@ -1,9 +1,10 @@
 #include "Contact.h"
 
+#include <Arduino.h>
+
 Contact::Contact() {}
 
 Contact::Contact(unsigned char* givenUUID, char const* givenName) {
-
   setUUID(givenUUID);
   setName(givenName);
 }
