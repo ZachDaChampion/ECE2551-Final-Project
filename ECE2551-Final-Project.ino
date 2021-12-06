@@ -734,6 +734,7 @@ const State STATE_NEW_MESSAGE = {
             stateTransition(STATE_MESSAGE_SENT);
           else
             stateTransition(STATE_MESSAGE_FAILED);
+          radio.startListening();
           return;
         } break;
 
