@@ -1,6 +1,9 @@
 #ifndef MEMORY_H_
 #define MEMORY_H_
+#include <EEPROM.h>
 #include "Eeprom.h"
+#include "Contact.h"
+#include "Message.h"
 
 class Memory {
   public:
@@ -15,6 +18,7 @@ class Memory {
     bool saveContact(Contact contact);
     void saveMessage(Message message);
     void saveNodeInformation(Contact contact);
+    void reset();
     // Add as you see fit
 
   protected:
@@ -28,7 +32,7 @@ class Memory {
   private:
     const unsigned short MAX_CONTACTS = 10;
     const unsigned short MAX_MESSAGES = 20;
-    Eeprom x;
+    
     // Add as you see fit
 
 };
