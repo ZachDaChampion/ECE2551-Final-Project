@@ -3,6 +3,7 @@
 Contact::Contact() {}
 
 Contact::Contact(unsigned char* givenUUID, char const* givenName) {
+
   setUUID(givenUUID);
   setName(givenName);
 }
@@ -23,16 +24,18 @@ void Contact::setName(char const* givenName) {
       break;
     name[i] = givenName[i];
   }
+  name[i] = '\0';
+}
 
-  void Contact::setName(char givenName) {
-    name[0] = givenName;
-    name[1] = '\0';
-  }
+void Contact::setName(char givenName) {
+  name[0] = givenName;
+  name[1] = '\0';
+}
 
-  unsigned char* Contact::getUUID() {
-    return uuid;
-  }
+unsigned char* Contact::getUUID() {
+  return uuid;
+}
 
-  char* Contact::getName() {
-    return name;
-  }
+char* Contact::getName() {
+  return name;
+}

@@ -15,24 +15,33 @@ LCDKeypad::Button BUTTONS[6] = {LCDKeypad::Button::UP,
                                 LCDKeypad::Button::RIGHT,
                                 LCDKeypad::Button::SELECT};
 
-unsigned long long lastButtonUpdate = 0;
+LCDKeypad::LCDKeypad(uint8_t rs, uint8_t enable,
+                     uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7, uint8_t btn)
+    : LiquidCrystal(rs, enable, d4, d5, d6, d7), lastButtonUpdate(0), buttonPin(btn) {}
+
 LCDKeypad::Button LCDKeypad::getButtonPress() {
   unsigned long long currentTime = millis();
+  unsigned short analogValue = analogRead(buttonPin);
 
-  // ensure enough time has passed since the last button press
-  if (currentTime - lastButtonUpdate > DEBOUNCE_TIME) {
-    lastButtonUpdate = currentTime;
-
-    unsigned short analogValue = analogRead(A0);
-
-    // check if each button is pressed and, if so, return the button
-    for (Button btn : BUTTONS) {
-      unsigned short diff = analogValue - static_cast<unsigned short>(btn);
-      if (abs(diff) < MAX_VALUE_ERROR)
+  // check if each button is pressed and, if so, return the button
+  for (Button btn : BUTTONS) {
+    unsigned short diff = analogValue - static_cast<unsigned short>(btn);
+    if (abs(diff) < MAX_VALUE_ERROR) {
+      // only return button press if debounce time has passed
+      if (currentTime - lastButtonUpdate > DEBOUNCE_TIME) {
+        lastButtonUpdate = currentTime;
         return btn;
+      }
+      lastButtonUpdate = currentTime;
     }
   }
 
   // base case
   return Button::NONE;
+}
+
+void LCDKeypad::clearLine(unsigned char line) {
+  setCursor(0, line);
+  print("                ");
+  setCursor(0, line);
 }
