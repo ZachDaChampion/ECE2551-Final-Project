@@ -4,10 +4,8 @@
 class Contact {
  public:
   Contact();
-  Contact(const Contact& other);
   Contact(unsigned char* givenUUID, char const* givenName);
   Contact(unsigned char* givenUUID, char givenName);
-  ~Contact();
   void setUUID(unsigned char* givenUUID);
   void setName(char const* givenName);
   void setName(char givenName);
@@ -15,8 +13,8 @@ class Contact {
   char* getName();
 
  private:
-  unsigned char* uuid;
-  char* name;
+  unsigned char uuid[5];
+  char name[11];
 };
 
 #endif
