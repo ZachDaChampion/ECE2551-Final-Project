@@ -20,7 +20,7 @@ void Contact::setUUID(unsigned char* givenUUID) {
 
 void Contact::setName(char const* givenName) {
   unsigned char i;
-  for (i = 0; i < 11; ++i) {
+  for (i = 0; i < 10; ++i) {
     if (givenName[i] == '\0')
       break;
     name[i] = givenName[i];

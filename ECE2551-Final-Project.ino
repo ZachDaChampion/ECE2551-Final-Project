@@ -84,12 +84,7 @@ unsigned long long stateTime = 0;
 
 void setup() {
   // configure radio pins
-  pinMode(RADIO_CE_PIN, OUTPUT);
-  pinMode(RADIO_CSN_PIN, OUTPUT);
-  pinMode(RADIO_MOSI_PIN, OUTPUT);
-  pinMode(RADIO_MISO_PIN, INPUT);
-  pinMode(RADIO_SCK_PIN, OUTPUT);
-  pinMode(RADIO_IRQ_PIN, INPUT);
+  pinMode(RADIO_IRQ_PIN, INPUT_PULLUP);
 
   // configure lcd pins
   pinMode(LCD_BUTTONS_PIN, INPUT);
@@ -119,7 +114,7 @@ void setup() {
   unsigned char u2[5] = {5, 4, 3, 2, 1};
   contacts[0].setName("Zach");
   contacts[0].setUUID(u1);
-  contacts[1].setName("Long name");
+  contacts[1].setName("Long name!!!");
   contacts[1].setUUID(u2);
 
   Serial.println("now");
@@ -138,6 +133,9 @@ void setup() {
 
   myContact.setUUID(u1);
   myContact.setName("Zach");
+
+  Serial.print("MESSAGE SIZE: ");
+  Serial.println(sizeof(Message));
 #endif
 
 // configure radio
@@ -164,12 +162,7 @@ void setup() {
   state.enter();
 }
 
-bool t = false;
 void loop() {
-  if (millis() > 5000 && !t) {
-    t = true;
-    stateTransition(STATE_MESSAGE_RECEIVED);
-  }
   if (state.loop)
     state.loop();
 }
@@ -434,7 +427,12 @@ const State STATE_CONTACTS = {
       lcdKeypad.clear();
       lcdKeypad.print("Contact:");
       lcdKeypad.setCursor(0, 1);
-      lcdKeypad.print(contactCount ? contacts[menuIndex].getName() : "No contacts"); },
+      if (contactCount) {
+        lcdKeypad.print("<-            ->");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
+      }
+      else lcdKeypad.print("  No Contacts   "); },
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
@@ -444,22 +442,28 @@ const State STATE_CONTACTS = {
 
         // navigate left
         case LCDKeypad::Button::LEFT:
+          if (!contactCount) break;
           if (menuIndex == 0)
             menuIndex = contactCount - 1;
           else
             --menuIndex;
-          lcdKeypad.clearLine(1);
-          lcdKeypad.print(contactCount ? contacts[menuIndex].getName() : "No contacts");
+          lcdKeypad.setCursor(3, 1);
+          lcdKeypad.print("          ");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
           break;
 
         // navigate right
         case LCDKeypad::Button::RIGHT:
+          if (!contactCount) break;
           if (menuIndex == contactCount - 1)
             menuIndex = 0;
           else
             ++menuIndex;
-          lcdKeypad.clearLine(1);
-          lcdKeypad.print(contactCount ? contacts[menuIndex].getName() : "No contacts");
+          lcdKeypad.setCursor(3, 1);
+          lcdKeypad.print("          ");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
           break;
 
         // go back
