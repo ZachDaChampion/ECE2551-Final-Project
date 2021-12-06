@@ -21,8 +21,8 @@ class Message {
   char* payloadToString(unsigned short payload, unsigned char length);
 
  private:
-  unsigned char* from;
-  unsigned char* to;
+  unsigned char from[5];
+  unsigned char to[5];
   unsigned short payload;
   unsigned char length;
 };
