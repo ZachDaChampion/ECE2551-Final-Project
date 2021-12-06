@@ -2,16 +2,15 @@
 
 #include <Arduino.h>
 
-Message::Message() : from(new unsigned char[5]), to(new unsigned char[5]), payload(0), length(0) {}
+Message::Message() : payload(0), length(0) {}
 
 Message::Message(unsigned char* from, unsigned char* to, unsigned short payload, unsigned char length)
-    : from(new unsigned char[5]), to(new unsigned char[5]), payload(payload), length(length) {
+    : payload(payload), length(length) {
   setFrom(from);
   setTo(to);
 }
 
-Message::Message(unsigned char* from, unsigned char* to, char const* message)
-    : from(new unsigned char[5]), to(new unsigned char[5]) {
+Message::Message(unsigned char* from, unsigned char* to, char const* message) {
   setFrom(from);
   setTo(to);
   length = 0;
