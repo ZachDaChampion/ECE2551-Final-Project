@@ -62,9 +62,11 @@ unsigned char messageCount = 0;
 Message messages[20];
 
 State state;
-unsigned char myUUID[] = {1, 2, 3, 4, 5};
+State prevState;
+Contact myContact;
 Contact currentContact;
 Message currentMessage;
+Message incomingMessage;
 LCDKeypad lcdKeypad(LCD_RS_PIN, LCD_ENABLE_PIN, LCD_DB4_PIN, LCD_DB5_PIN, LCD_DB6_PIN, LCD_DB7_PIN, LCD_BUTTONS_PIN);
 #if MEMORY_ENABLED
 Memory memory;
@@ -74,16 +76,15 @@ RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
 // menu navigation
 unsigned char menuIndex = 0;
 char menuChar = 'A';
+char menuCharUUID = 0x0;
 unsigned char menuCursor = 0;
+char menuInput[17] = {};
+unsigned char menuInputUUID[17] = {};
+unsigned long long stateTime = 0;
 
 void setup() {
   // configure radio pins
-  pinMode(RADIO_CE_PIN, OUTPUT);
-  pinMode(RADIO_CSN_PIN, OUTPUT);
-  pinMode(RADIO_MOSI_PIN, OUTPUT);
-  pinMode(RADIO_MISO_PIN, INPUT);
-  pinMode(RADIO_SCK_PIN, OUTPUT);
-  pinMode(RADIO_IRQ_PIN, INPUT);
+  pinMode(RADIO_IRQ_PIN, INPUT_PULLUP);
 
   // configure lcd pins
   pinMode(LCD_BUTTONS_PIN, INPUT);
@@ -102,19 +103,22 @@ void setup() {
 
 // configure memory
 #if ENABLE_MEMORY
-  myUUID = memory.getNodeUUID();
+  myContact.getUUID() = memory.getNodeUUID();
   contactCount = memory.getNumberContacts();
   messageCount = memory.getNumberMessages();
   for (unsigned char i = 0; i < contactCount; i++) contacts[i] = memory.getContact(i);
   for (unsigned char i = 0; i < messageCount; i++) messages[i] = memory.getMessage(i);
 #else
-  contactCount = 2;
+  contactCount = 3;
   unsigned char u1[5] = {1, 2, 3, 4, 5};
   unsigned char u2[5] = {5, 4, 3, 2, 1};
   contacts[0].setName("Zach");
   contacts[0].setUUID(u1);
-  contacts[1].setName("Long name");
+  contacts[1].setName("Long name!!!");
   contacts[1].setUUID(u2);
+
+  Serial.println("now");
+  contacts[2] = Contact(u2, "Other");
 
   messageCount = 2;
   messages[0].setFrom(u1);
@@ -126,6 +130,12 @@ void setup() {
   messages[1].setTo(u1);
   messages[1].setPayload(0b10);
   messages[1].setLength(5);
+
+  myContact.setUUID(u1);
+  myContact.setName("Zach");
+
+  Serial.print("MESSAGE SIZE: ");
+  Serial.println(sizeof(Message));
 #endif
 
 // configure radio
@@ -135,6 +145,12 @@ void setup() {
     while (1)
       ;
   }
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setPayloadSize(sizeof(Message));
+  radio.setAddressWidth(5);
+  radio.openReadingPipe(1, myContact.getUUID());
+  radio.startListening();
+  attachInterrupt(digitalPinToInterrupt(RADIO_IRQ_PIN), radioInterruptHandler, FALLING);
 #endif
 
   // configure keypad
@@ -144,19 +160,6 @@ void setup() {
 
   state = STATE_SETUP;
   state.enter();
-
-  Serial.println(memcmp(u1, u1, 5));
-  Serial.println(memcmp(u1, u2, 5));
-  Serial.println(memcmp(myUUID, u1, 5));
-  Serial.println(memcmp(myUUID, contacts[0].getUUID(), 5));
-  Serial.println(getContactFromUUID(messages[0].getFrom()));
-
-  for (unsigned char i = 0; i < 5; ++i) Serial.print(messages[0].getFrom()[i]);
-  Serial.println();
-  for (unsigned char i = 0; i < 5; ++i) Serial.print(messages[1].getFrom()[i]);
-  Serial.println();
-
-  Serial.println("all set up");
 }
 
 void loop() {
@@ -164,10 +167,23 @@ void loop() {
     state.loop();
 }
 
+void radioInterruptHandler() {
+  if (radio.available()) {
+    radio.read(&incomingMessage, sizeof(Message));
+
+    Serial.print(("Received: "));
+    for (unsigned char i = 0; i < 5; i++) Serial.print(incomingMessage.getFrom()[i], HEX);
+    Serial.print(incomingMessage.getPayloadString());
+
+    stateTransition(STATE_MESSAGE_RECEIVED);
+  }
+}
+
 // transition between states
 void stateTransition(State newState) {
   if (state.exit)
     state.exit();
+  prevState = state;
   state = newState;
   if (state.enter)
     state.enter();
@@ -182,6 +198,119 @@ char* getContactFromUUID(unsigned char uuid[]) {
   return "";
 }
 
+// string input handler
+void loopTextInput(LCDKeypad::Button button, unsigned char offset, unsigned char maxLength) {
+  // check for button press
+  switch (button) {
+    // navigate left
+    case LCDKeypad::Button::LEFT:
+      Serial.println(menuCursor);
+      if (menuCursor == 0)
+        break;
+      lcdKeypad.write(' ');
+      --menuCursor;
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    // navigate right
+    case LCDKeypad::Button::RIGHT:
+      Serial.println(menuCursor);
+      if (menuCursor == maxLength - 1)
+        break;
+      ++menuCursor;
+      menuInput[menuCursor] = 'A';
+      menuChar = 'A';
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      lcdKeypad.write(menuChar);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    // next character
+    case LCDKeypad::Button::DOWN:
+      if (menuChar == 'Z')
+        menuChar = 'a';
+      else if (menuChar == 'z')
+        menuChar = 'A';
+      else
+        ++menuChar;
+      menuInput[menuCursor] = menuChar;
+      lcdKeypad.write(menuChar);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+      // prev character
+    case LCDKeypad::Button::UP:
+      if (menuChar == 'A')
+        menuChar = 'z';
+      else if (menuChar == 'a')
+        menuChar = 'Z';
+      else
+        --menuChar;
+      menuInput[menuCursor] = menuChar;
+      lcdKeypad.write(menuChar);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    default:
+      break;
+  }
+}
+
+// uuid input handler
+void loopUUIDInput(LCDKeypad::Button button, unsigned char offset, unsigned char maxLength) {
+  // check for button press
+  switch (button) {
+    // navigate left
+    case LCDKeypad::Button::LEFT:
+      Serial.println(menuCursor);
+      if (menuCursor == 0)
+        break;
+      lcdKeypad.print(0x0, HEX);
+      menuInputUUID[menuCursor] = 0x0;
+      --menuCursor;
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    // navigate right
+    case LCDKeypad::Button::RIGHT:
+      Serial.println(menuCursor);
+      if (menuCursor == maxLength - 1)
+        break;
+      ++menuCursor;
+      menuInputUUID[menuCursor] = 0x0;
+      menuCharUUID = 0x0;
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      lcdKeypad.print(menuCharUUID, HEX);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    // next character
+    case LCDKeypad::Button::DOWN:
+      if (menuCharUUID == 0x0)
+        menuCharUUID = 0xF;
+      else
+        --menuCharUUID;
+      menuInputUUID[menuCursor] = menuCharUUID;
+      lcdKeypad.print(menuCharUUID, HEX);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+      // prev character
+    case LCDKeypad::Button::UP:
+      if (menuCharUUID == 0xF)
+        menuCharUUID = 0x0;
+      else
+        ++menuCharUUID;
+      menuInputUUID[menuCursor] = menuCharUUID;
+      lcdKeypad.print(menuCharUUID, HEX);
+      lcdKeypad.setCursor(menuCursor + offset, 1);
+      break;
+
+    default:
+      break;
+  }
+}
+
 // setup state
 const State STATE_SETUP = {
     .enter = []() {
@@ -193,18 +322,34 @@ const State STATE_SETUP = {
         return;
       }
 #else
-      stateTransition(STATE_MENU);
-      return;
+  // stateTransition(STATE_MENU);
+  // return;
 #endif
 
       // print welcome message
+      menuIndex = 0;
+      menuChar = 'A';
+      menuCursor = 0;
+      menuInput[0] = 'A';
       lcdKeypad.clear();
       lcdKeypad.print("Welcome!");
       lcdKeypad.setCursor(0, 1);
-      lcdKeypad.print("Name: ");
-    },
-    .loop = nullptr,  // TODO: enter name
-    .exit = nullptr,
+      lcdKeypad.print("Name: A");
+      lcdKeypad.setCursor(menuCursor + 6, 1);
+      lcdKeypad.cursor(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (button == LCDKeypad::Button::SELECT) {
+        // TODO: set contact node stuff
+        stateTransition(STATE_MENU);
+        return;
+      }
+      
+      // handle text input
+      loopTextInput(button, 6, 10); },
+
+    .exit = []() { lcdKeypad.noCursor(); },
 };
 
 // menu state
@@ -254,16 +399,18 @@ const State STATE_MENU = {
         case LCDKeypad::Button::SELECT:
           switch (menuIndex) {
             case 0:
+             menuIndex = 0;
              stateTransition(STATE_CONTACTS);
               return;
             case 1:
+             menuIndex = 0;
              stateTransition(STATE_MESSAGES);
               return;
             case 2:
-//              stateTransition(STATE_NEW_CONTACT);
+             stateTransition(STATE_NEW_CONTACT_NAME);
               return;
             case 3:
-//              stateTransition(STATE_ABOUT_ME);
+             stateTransition(STATE_ABOUT_ME);
               return;
           }
           break;
@@ -280,8 +427,12 @@ const State STATE_CONTACTS = {
       lcdKeypad.clear();
       lcdKeypad.print("Contact:");
       lcdKeypad.setCursor(0, 1);
-      lcdKeypad.print(contactCount ? contacts[0].getName() : "No contacts");
-      menuIndex = 0; },
+      if (contactCount) {
+        lcdKeypad.print("<-            ->");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
+      }
+      else lcdKeypad.print("  No Contacts   "); },
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
@@ -291,22 +442,28 @@ const State STATE_CONTACTS = {
 
         // navigate left
         case LCDKeypad::Button::LEFT:
+          if (!contactCount) break;
           if (menuIndex == 0)
             menuIndex = contactCount - 1;
           else
             --menuIndex;
-          lcdKeypad.clearLine(1);
-          lcdKeypad.print(contactCount ? contacts[menuIndex].getName() : "No contacts");
+          lcdKeypad.setCursor(3, 1);
+          lcdKeypad.print("          ");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
           break;
 
         // navigate right
         case LCDKeypad::Button::RIGHT:
+          if (!contactCount) break;
           if (menuIndex == contactCount - 1)
             menuIndex = 0;
           else
             ++menuIndex;
-          lcdKeypad.clearLine(1);
-          lcdKeypad.print(contactCount ? contacts[menuIndex].getName() : "No contacts");
+          lcdKeypad.setCursor(3, 1);
+          lcdKeypad.print("          ");
+          lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          lcdKeypad.print(contacts[menuIndex].getName());
           break;
 
         // go back
@@ -316,9 +473,13 @@ const State STATE_CONTACTS = {
 
         // select menu item
         case LCDKeypad::Button::SELECT:
-          currentContact = contacts[menuIndex];
-          // stateTransition(STATE_NEW_MESSAGE);
+        if (contactCount) {
+          currentContact.setName(contacts[menuIndex].getName());
+          currentContact.setUUID(contacts[menuIndex].getUUID());
+          stateTransition(STATE_NEW_MESSAGE);
           return;
+        }
+        break;
 
           default: break;
       } },
@@ -326,21 +487,30 @@ const State STATE_CONTACTS = {
     .exit = nullptr,
 };
 
+void showCurrentMessagePreview() {
+  bool from = memcmp(myContact.getUUID(), messages[menuIndex].getFrom(), 5) == 0;
+  lcdKeypad.setCursor(15, 0);
+  lcdKeypad.print(from ? 'S' : 'R');
+  lcdKeypad.clearLine(1);
+  lcdKeypad.print(menuIndex + 1);
+  lcdKeypad.print(". ");
+  lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
+}
 const State STATE_MESSAGES = {
     .enter = []() {
       Serial.println("MESSAGES");
-      menuIndex = 0;
       bool from = 0;
       lcdKeypad.clear();
       if (messageCount) {
-        from = memcmp(myUUID, messages[menuIndex].getFrom(), 5) == 0;
+        from = memcmp(myContact.getUUID(), messages[menuIndex].getFrom(), 5) == 0;
         lcdKeypad.print("Message:      [");
         lcdKeypad.print(from ? 'S' : 'R');
       } else
         lcdKeypad.print("Message:");
       lcdKeypad.setCursor(0, 1);
       if (messageCount) {
-        lcdKeypad.print("1. ");
+        lcdKeypad.print(menuIndex + 1);
+        lcdKeypad.print(". ");
         lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
       } else
         lcdKeypad.print("No messages"); },
@@ -358,13 +528,7 @@ const State STATE_MESSAGES = {
               menuIndex = messageCount - 1;
             else
               --menuIndex;
-            bool from = memcmp(myUUID, messages[menuIndex].getFrom(), 5) == 0;
-            lcdKeypad.setCursor(15, 0);
-            lcdKeypad.print(from ? 'S' : 'R');
-            lcdKeypad.clearLine(1);
-            lcdKeypad.print(menuIndex + 1);
-            lcdKeypad.print(". ");
-            lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
+              showCurrentMessagePreview();
           } break;
 
           // navigate right
@@ -374,13 +538,7 @@ const State STATE_MESSAGES = {
               menuIndex = 0;
             else
               ++menuIndex;
-            bool from = memcmp(myUUID, messages[menuIndex].getFrom(), 5) == 0;
-            lcdKeypad.setCursor(15, 0);
-            lcdKeypad.print(memcmp(myUUID, messages[menuIndex].getFrom(), 5) == 0 ? 'S' : 'R');
-            lcdKeypad.clearLine(1);
-            lcdKeypad.print(menuIndex + 1);
-            lcdKeypad.print(". ");
-            lcdKeypad.print(from ? getContactFromUUID(messages[menuIndex].getTo()) : getContactFromUUID(messages[menuIndex].getFrom()));
+              showCurrentMessagePreview();
           } break;
 
           // go back
@@ -391,7 +549,7 @@ const State STATE_MESSAGES = {
           // select menu item
           case LCDKeypad::Button::SELECT:
             currentMessage = messages[menuIndex];
-//            stateTransition(STATE_NEW_MESSAGE);
+           stateTransition(STATE_MESSAGE_OPEN);
             return;
 
           default: break;
@@ -401,9 +559,269 @@ const State STATE_MESSAGES = {
 };
 
 const State STATE_NEW_CONTACT_NAME = {
-    .enter = []() {},
+    .enter = []() {
+      if (contactCount == 10) {
+        stateTransition(STATE_LIST_FULL);
+        return;
+      }
+      menuChar = 'A';
+      menuCursor = 0;
+      menuInput[0] = 'A';
+      Serial.println("NEW CONTACT NAME");
+      lcdKeypad.clear();
+      lcdKeypad.print("New Contact");
+      lcdKeypad.setCursor(0, 1);
+      lcdKeypad.print("Name: A");
+      lcdKeypad.setCursor(menuCursor + 6, 1);
+      lcdKeypad.cursor(); },
 
-    .loop = []() {},
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (button == LCDKeypad::Button::SELECT) {
+        menuInput[menuCursor + 1] = '\0';
+        Serial.println(menuInput);
+        currentContact.setName(menuInput);
+        stateTransition(STATE_NEW_CONTACT_UUID);
+        return;
+      }
+      loopTextInput(button, 6, 10); },
+
+    .exit = []() { lcdKeypad.noCursor(); },
+};
+
+const State STATE_NEW_CONTACT_UUID = {
+    .enter = []() {
+    menuChar = 0x0;
+    menuCursor = 0;
+    menuInputUUID[0] = 0x0;
+    Serial.println("NEW CONTACT UUID");
+    lcdKeypad.clear();
+    lcdKeypad.print("New Contact");
+    lcdKeypad.setCursor(0, 1);
+    lcdKeypad.print("UUID: 0000000000");
+    lcdKeypad.setCursor(menuCursor + 6, 1);
+    lcdKeypad.cursor(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (button == LCDKeypad::Button::SELECT) {
+        unsigned char uuid[5];
+        for (int i = 0; i < 5; ++i) {
+          uuid[i] = menuInputUUID[2*i + 1];
+          uuid[i] += menuInputUUID[2*i] << 4;
+        }
+        currentContact.setUUID(uuid);
+        contacts[contactCount].setName(currentContact.getName());
+        contacts[contactCount].setUUID(currentContact.getUUID());
+        ++contactCount;
+        // TODO: save contact
+        stateTransition(STATE_CONTACT_ADDED);
+        return;
+      }
+      loopUUIDInput(button, 6, 10); },
+
+    .exit = []() { lcdKeypad.noCursor(); },
+};
+
+const State STATE_CONTACT_ADDED = {
+    .enter = []() {
+      Serial.println("CONTACT ADDED");
+      lcdKeypad.clear();
+      lcdKeypad.print("Contact added!");
+      stateTime = millis(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MENU);
+        return;
+      } },
+    .exit = nullptr,
+};
+
+const State STATE_LIST_FULL = {
+    .enter = []() {
+      Serial.println("LIST FULL");
+      lcdKeypad.clear();
+      lcdKeypad.print("Contact list");
+      lcdKeypad.setCursor(0, 1);
+      lcdKeypad.print("is full!");
+      stateTime = millis(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MENU);
+        return;
+      } },
+    .exit = nullptr,
+};
+
+const State STATE_ABOUT_ME = {
+    .enter = []() {
+      Serial.println("ABOUT ME");
+      lcdKeypad.clear();
+      lcdKeypad.print("Name: ");
+      lcdKeypad.print(myContact.getName());
+      lcdKeypad.setCursor(0, 1);
+      lcdKeypad.print("UUID: ");
+      for (unsigned char i = 0; i < 5; ++i) {
+        lcdKeypad.print(myContact.getUUID()[i] >> 4, HEX);
+        lcdKeypad.print(myContact.getUUID()[i] & 0xF, HEX);
+      } },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MENU);
+        return;
+      } },
+
+    .exit = nullptr,
+};
+
+const State STATE_NEW_MESSAGE = {
+
+    .enter = []() {
+      menuCursor = 0;
+      Serial.println("NEW MESSAGE");
+      lcdKeypad.clear();
+      lcdKeypad.print("To: ");
+      lcdKeypad.print(currentContact.getName());
+      lcdKeypad.setCursor(0, 1);
+      lcdKeypad.cursor(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+
+      switch (button) {
+
+        // go back
+        case LCDKeypad::Button::UP:
+          stateTransition(STATE_CONTACTS);
+          return;
+
+        // add dot
+        case LCDKeypad::Button::LEFT:
+          menuInput[menuCursor] = '.';
+          lcdKeypad.write('.');
+          if (menuCursor == 15) lcdKeypad.setCursor(15,1);
+          else ++menuCursor;
+          break;
+
+          // add dash
+        case LCDKeypad::Button::RIGHT:
+          menuInput[menuCursor] = '-';
+          lcdKeypad.write('-');
+          if (menuCursor == 15) lcdKeypad.setCursor(15,1);
+          else ++menuCursor;
+          break;
+
+          // backspace 
+        case LCDKeypad::Button::DOWN:
+          if (menuCursor == 0) break;
+          --menuCursor;
+          lcdKeypad.setCursor(menuCursor, 1);
+          lcdKeypad.print(" ");
+          lcdKeypad.setCursor(menuCursor, 1);
+          break;
+
+          // select
+        case LCDKeypad::Button::SELECT:{
+          currentMessage = Message(myContact.getUUID(), currentContact.getUUID(), menuInput);
+
+          // send message
+          radio.stopListening();
+          radio.openWritingPipe(currentMessage.getTo());
+          bool report = radio.write(&currentMessage, sizeof(Message));
+          if (report)
+            stateTransition(STATE_MESSAGE_SENT);
+          else
+            stateTransition(STATE_MESSAGE_FAILED);
+          radio.startListening();
+          return;
+        } break;
+
+        default: break;
+      } },
+
+    .exit = []() { lcdKeypad.noCursor(); },
+};
+
+const State STATE_MESSAGE_SENT = {
+    .enter = []() {
+      Serial.println("MESSAGE SENT");
+      lcdKeypad.clear();
+      lcdKeypad.print("Message Sent!");
+      if (messageCount == 20) messages[0] = currentMessage;
+      else {      
+        messages[messageCount] = currentMessage;
+        ++messageCount; 
+      } stateTime = millis(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MENU);
+        return;
+      } },
+
+    .exit = nullptr,
+};
+
+const State STATE_MESSAGE_FAILED = {
+    .enter = []() {
+      Serial.println("MESSAGE FAILED");
+      lcdKeypad.clear();
+      lcdKeypad.print("Message Failed!");
+      stateTime = millis(); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MENU);
+        return;
+      } },
+
+    .exit = nullptr,
+};
+
+const State STATE_MESSAGE_OPEN = {
+    .enter = []() {
+      bool from = memcmp(currentMessage.getFrom(), myContact.getUUID(), 5) == 0;
+    Serial.println("MESSAGE OPEN");
+    lcdKeypad.clear();
+    lcdKeypad.print(from ? "Sent: " : "From: ");
+    lcdKeypad.print(from ? getContactFromUUID(currentMessage.getTo()) : getContactFromUUID(currentMessage.getFrom()));
+    lcdKeypad.setCursor(0, 1);
+    lcdKeypad.print(currentMessage.getPayloadString()); },
+
+    .loop = []() {
+      LCDKeypad::Button button = lcdKeypad.getButtonPress();
+      if (button == LCDKeypad::Button::UP) {
+        stateTransition(STATE_MESSAGES);
+        return;
+      } },
+
+    .exit = nullptr,
+};
+
+const State STATE_MESSAGE_RECEIVED = {
+    .enter = []() {
+      Serial.println("NEW MESSAGE");
+      lcdKeypad.clear();
+      lcdKeypad.print("New Message!");
+      lcdKeypad.setCursor(0, 1);
+      lcdKeypad.print("From: ");
+      lcdKeypad.print(getContactFromUUID(incomingMessage.getFrom()));
+      stateTime = millis(); },
+
+    .loop = []() {
+        LCDKeypad::Button button = lcdKeypad.getButtonPress();
+        if (millis() - stateTime > 6000 || button == LCDKeypad::Button::UP) {
+          stateTransition(prevState);
+          return;
+        } },
 
     .exit = nullptr,
 };
