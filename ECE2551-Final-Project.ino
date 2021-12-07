@@ -116,7 +116,6 @@ void setup() {
   contacts[1].setName("Long name!!!");
   contacts[1].setUUID(u2);
 
-  Serial.println("now");
   contacts[2] = Contact(u2, "Other");
 
   messageCount = 2;
@@ -132,9 +131,6 @@ void setup() {
 
   myContact.setUUID(u1);
   myContact.setName("Zach");
-
-  Serial.print("MESSAGE SIZE: ");
-  Serial.println(sizeof(Message));
 #endif
 
 // configure radio
@@ -162,7 +158,9 @@ void setup() {
 }
 
 void loop() {
-  if (state.loop)
+  if (!radio.isChipConnected())
+    Serial.println(F("radio is not connected!!"));
+  else if (state.loop)
     state.loop();
 }
 
@@ -185,9 +183,9 @@ void radioInterruptHandler() {
     updateMemory();
 #else
     if (messageCount == 20)
-      messages[0] = currentMessage;
+      messages[0] = incomingMessage;
     else {
-      messages[messageCount] = currentMessage;
+      messages[messageCount] = incomingMessage;
       ++messageCount;
     }
 #endif
@@ -202,10 +200,12 @@ void radioInterruptHandler() {
 }
 
 // transition between states
+bool saveState = true;
 void stateTransition(State newState) {
   if (state.exit)
     state.exit();
-  prevState = state;
+  if (saveState)
+    prevState = state;
   state = newState;
   if (state.enter)
     state.enter();
@@ -764,7 +764,7 @@ const State STATE_NEW_MESSAGE = {
           // send message
           radio.stopListening();
           radio.openWritingPipe(currentMessage.getTo());
-          bool report = radio.write(&currentMessage, sizeof(Message));
+          bool report = radio.write(&incomingMessage, sizeof(incomingMessage));
           if (report)
             stateTransition(STATE_MESSAGE_SENT);
           else
@@ -850,6 +850,7 @@ const State STATE_MESSAGE_RECEIVED = {
       lcdKeypad.print("New Message!");
       lcdKeypad.setCursor(0, 1);
       lcdKeypad.print("From: ");
+      saveState = false;
       lcdKeypad.print(getContactFromUUID(incomingMessage.getFrom()));
       stateTime = millis(); },
 
@@ -860,5 +861,5 @@ const State STATE_MESSAGE_RECEIVED = {
           return;
         } },
 
-    .exit = nullptr,
+    .exit = []() { saveState = true; },
 };
