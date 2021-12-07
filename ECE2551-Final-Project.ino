@@ -1,5 +1,5 @@
 #define ENABLE_MEMORY 0
-#define ENABLE_RADIO 0
+#define ENABLE_RADIO 1
 
 #include "Contact.h"
 #include "Entropy/Entropy.h"
@@ -31,6 +31,9 @@ const uint8_t LCD_DB7_PIN = 7;
 const uint8_t LCD_RS_PIN = 8;
 const uint8_t LCD_ENABLE_PIN = 9;
 const uint8_t LCD_BACKLIGHT_PIN = 10;
+
+// buzzer pin
+const uint8_t BUZZER_PIN = 3;
 
 // generic state
 struct State {
@@ -103,11 +106,7 @@ void setup() {
 
 // configure memory
 #if ENABLE_MEMORY
-  myContact.getUUID() = memory.getNodeUUID();
-  contactCount = memory.getNumberContacts();
-  messageCount = memory.getNumberMessages();
-  for (unsigned char i = 0; i < contactCount; i++) contacts[i] = memory.getContact(i);
-  for (unsigned char i = 0; i < messageCount; i++) messages[i] = memory.getMessage(i);
+  updateMemory();
 #else
   contactCount = 3;
   unsigned char u1[5] = {1, 2, 3, 4, 5};
@@ -167,10 +166,33 @@ void loop() {
     state.loop();
 }
 
+#if ENABLE_MEMORY
+void updateMemory() {
+  myContact.getUUID() = memory.getNodeUUID();
+  contactCount = memory.getNumberContacts();
+  messageCount = memory.getNumberMessages();
+  for (unsigned char i = 0; i < contactCount; i++) contacts[i] = memory.getContact(i);
+  for (unsigned char i = 0; i < messageCount; i++) messages[i] = memory.getMessage(i);
+}
+#endif
+
 void radioInterruptHandler() {
   if (radio.available()) {
     radio.read(&incomingMessage, sizeof(Message));
 
+#if ENABLE_MEMORY
+    memory.saveMessage(incomingMessage);
+    updateMemory();
+#else
+    if (messageCount == 20)
+      messages[0] = currentMessage;
+    else {
+      messages[messageCount] = currentMessage;
+      ++messageCount;
+    }
+#endif
+
+    tone(BUZZER_PIN, 1000, 100);
     Serial.print(("Received: "));
     for (unsigned char i = 0; i < 5; i++) Serial.print(incomingMessage.getFrom()[i], HEX);
     Serial.print(incomingMessage.getPayloadString());
@@ -341,7 +363,11 @@ const State STATE_SETUP = {
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
       if (button == LCDKeypad::Button::SELECT) {
-        // TODO: set contact node stuff
+        unsigned char u1[] = {1, 2, 3, 4, 5};
+        myContact = Contact(u1, menuInput);
+#if ENABLE_MEMORY
+        memory.saveNodeInformation(myContact);
+#endif
         stateTransition(STATE_MENU);
         return;
       }
@@ -611,10 +637,15 @@ const State STATE_NEW_CONTACT_UUID = {
           uuid[i] += menuInputUUID[2*i] << 4;
         }
         currentContact.setUUID(uuid);
+
+#if ENABLE_MEMORY
+        memory.saveContact(currentContact);
+        updateMemory();
+#else
         contacts[contactCount].setName(currentContact.getName());
         contacts[contactCount].setUUID(currentContact.getUUID());
         ++contactCount;
-        // TODO: save contact
+#endif
         stateTransition(STATE_CONTACT_ADDED);
         return;
       }
@@ -753,11 +784,17 @@ const State STATE_MESSAGE_SENT = {
       Serial.println("MESSAGE SENT");
       lcdKeypad.clear();
       lcdKeypad.print("Message Sent!");
+#if ENABLE_MEMORY
+      memory.saveMessage(currentMessage);
+      updateMemory();
+#else
       if (messageCount == 20) messages[0] = currentMessage;
       else {      
         messages[messageCount] = currentMessage;
         ++messageCount; 
-      } stateTime = millis(); },
+      }
+#endif
+      stateTime = millis(); },
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
