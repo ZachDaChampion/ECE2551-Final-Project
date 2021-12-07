@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-Message::Message() : payload(0), length(0) {}
+Message::Message() : from({0, 0, 0, 0, 0}), to({0, 0, 0, 0, 0}), payload(0), length(0) {}
 
 Message::Message(unsigned char* from, unsigned char* to, unsigned short payload, unsigned char length)
     : payload(payload), length(length) {

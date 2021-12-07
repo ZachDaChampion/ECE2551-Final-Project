@@ -1,17 +1,18 @@
-#define ENABLE_MEMORY 0
-#define ENABLE_RADIO 1
+#define ENABLE_MEMORY 1
+#define ENABLE_RADIO 0
+
+#ifdef ENABLE_RADIO
+#include <RF24.h>
+#endif
+
+#include <Entropy.h>
 
 #include "Contact.h"
-#include "Entropy/Entropy.h"
 #include "LCDKeypad.h"
 #include "Message.h"
 
 #ifdef ENABLE_MEMORY
 #include "Memory.h"
-#endif
-
-#ifdef ENABLE_RADIO
-#include "RF24.h"
 #endif
 
 // NR24 radio pins
@@ -71,7 +72,7 @@ Contact currentContact;
 Message currentMessage;
 Message incomingMessage;
 LCDKeypad lcdKeypad(LCD_RS_PIN, LCD_ENABLE_PIN, LCD_DB4_PIN, LCD_DB5_PIN, LCD_DB6_PIN, LCD_DB7_PIN, LCD_BUTTONS_PIN);
-#if MEMORY_ENABLED
+#if ENABLE_MEMORY
 Memory memory;
 #endif
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -106,6 +107,7 @@ void setup() {
 
 // configure memory
 #if ENABLE_MEMORY
+  // memory.reset();
   updateMemory();
 #else
   contactCount = 3;
@@ -158,15 +160,30 @@ void setup() {
 }
 
 void loop() {
+#if ENABLE_MEMORY
+  if (Serial.available()) {
+    char c = Serial.read();
+    if (c == 'r') {
+      Serial.println(F("reset"));
+      memory.reset();
+    }
+    if (c == 'm') memory.print();
+  }
+#endif
+#if ENABLE_RADIO
   if (!radio.isChipConnected())
     Serial.println(F("radio is not connected!!"));
   else if (state.loop)
+#else
+  if (state.loop)
+#endif
     state.loop();
 }
 
 #if ENABLE_MEMORY
 void updateMemory() {
-  myContact.getUUID() = memory.getNodeUUID();
+  myContact.setUUID(memory.getNodeUUID());
+  myContact.setName(memory.getNodeName());
   contactCount = memory.getNumberContacts();
   messageCount = memory.getNumberMessages();
   for (unsigned char i = 0; i < contactCount; i++) contacts[i] = memory.getContact(i);
@@ -174,6 +191,7 @@ void updateMemory() {
 }
 #endif
 
+#if ENABLE_RADIO
 void radioInterruptHandler() {
   if (radio.available()) {
     radio.read(&incomingMessage, sizeof(Message));
@@ -191,13 +209,11 @@ void radioInterruptHandler() {
 #endif
 
     tone(BUZZER_PIN, 1000, 100);
-    Serial.print(("Received: "));
-    for (unsigned char i = 0; i < 5; i++) Serial.print(incomingMessage.getFrom()[i], HEX);
-    Serial.print(incomingMessage.getPayloadString());
 
     stateTransition(STATE_MESSAGE_RECEIVED);
   }
 }
+#endif
 
 // transition between states
 bool saveState = true;
@@ -226,7 +242,6 @@ void loopTextInput(LCDKeypad::Button button, unsigned char offset, unsigned char
   switch (button) {
     // navigate left
     case LCDKeypad::Button::LEFT:
-      Serial.println(menuCursor);
       if (menuCursor == 0)
         break;
       lcdKeypad.write(' ');
@@ -236,7 +251,6 @@ void loopTextInput(LCDKeypad::Button button, unsigned char offset, unsigned char
 
     // navigate right
     case LCDKeypad::Button::RIGHT:
-      Serial.println(menuCursor);
       if (menuCursor == maxLength - 1)
         break;
       ++menuCursor;
@@ -284,7 +298,6 @@ void loopUUIDInput(LCDKeypad::Button button, unsigned char offset, unsigned char
   switch (button) {
     // navigate left
     case LCDKeypad::Button::LEFT:
-      Serial.println(menuCursor);
       if (menuCursor == 0)
         break;
       lcdKeypad.print(0x0, HEX);
@@ -295,7 +308,6 @@ void loopUUIDInput(LCDKeypad::Button button, unsigned char offset, unsigned char
 
     // navigate right
     case LCDKeypad::Button::RIGHT:
-      Serial.println(menuCursor);
       if (menuCursor == maxLength - 1)
         break;
       ++menuCursor;
@@ -336,16 +348,18 @@ void loopUUIDInput(LCDKeypad::Button button, unsigned char offset, unsigned char
 // setup state
 const State STATE_SETUP = {
     .enter = []() {
-      Serial.println("MENU");
 // check schema and, if it passes, go to menu state
 #if ENABLE_MEMORY
-      if (memory.hasSchema()) {
-        stateTransition(STATE_MENU);
-        return;
+      for (unsigned char i = 0; i < 5; ++i) {
+        unsigned char* uuid = memory.getNodeUUID();
+        if (uuid[i] != 0) {
+          stateTransition(STATE_MENU);
+          return;
+        }
       }
 #else
-  // stateTransition(STATE_MENU);
-  // return;
+// stateTransition(STATE_MENU);
+// return;
 #endif
 
       // print welcome message
@@ -363,8 +377,11 @@ const State STATE_SETUP = {
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
       if (button == LCDKeypad::Button::SELECT) {
-        unsigned char u1[] = {1, 2, 3, 4, 5};
-        myContact = Contact(u1, menuInput);
+        unsigned char uuid[5];
+        Entropy.initialize();
+        for (unsigned char i = 0; i < 5; ++i)
+          uuid[i] = Entropy.random(0xFF);
+        myContact = Contact(uuid, menuInput);
 #if ENABLE_MEMORY
         memory.saveNodeInformation(myContact);
 #endif
@@ -388,7 +405,6 @@ const char MENU_ITEMS[][17] = {
 const State STATE_MENU = {
 
     .enter = []() {
-      Serial.println("MENU");
       lcdKeypad.clear();
       lcdKeypad.print("Menu:");
       lcdKeypad.setCursor(0, 1);
@@ -449,7 +465,6 @@ const State STATE_MENU = {
 
 const State STATE_CONTACTS = {
     .enter = []() {
-      Serial.println("CONTACTS");
       lcdKeypad.clear();
       lcdKeypad.print("Contact:");
       lcdKeypad.setCursor(0, 1);
@@ -476,6 +491,15 @@ const State STATE_CONTACTS = {
           lcdKeypad.setCursor(3, 1);
           lcdKeypad.print("          ");
           lcdKeypad.setCursor(3 + (10 - strlen(contacts[menuIndex].getName())) / 2, 1);
+          Serial.print("Contact: ");
+          Serial.println(contacts[menuIndex].getName());
+          Serial.print("Size: ");
+          Serial.println(strlen(contacts[menuIndex].getName()));
+          for (unsigned char i = 0; i < 11; ++i) {
+            Serial.print(contacts[menuIndex].getName()[i], HEX);
+            Serial.print(' ');
+          }
+          Serial.println();
           lcdKeypad.print(contacts[menuIndex].getName());
           break;
 
@@ -524,7 +548,6 @@ void showCurrentMessagePreview() {
 }
 const State STATE_MESSAGES = {
     .enter = []() {
-      Serial.println("MESSAGES");
       bool from = 0;
       lcdKeypad.clear();
       if (messageCount) {
@@ -593,7 +616,6 @@ const State STATE_NEW_CONTACT_NAME = {
       menuChar = 'A';
       menuCursor = 0;
       menuInput[0] = 'A';
-      Serial.println("NEW CONTACT NAME");
       lcdKeypad.clear();
       lcdKeypad.print("New Contact");
       lcdKeypad.setCursor(0, 1);
@@ -605,7 +627,6 @@ const State STATE_NEW_CONTACT_NAME = {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
       if (button == LCDKeypad::Button::SELECT) {
         menuInput[menuCursor + 1] = '\0';
-        Serial.println(menuInput);
         currentContact.setName(menuInput);
         stateTransition(STATE_NEW_CONTACT_UUID);
         return;
@@ -620,7 +641,6 @@ const State STATE_NEW_CONTACT_UUID = {
     menuChar = 0x0;
     menuCursor = 0;
     menuInputUUID[0] = 0x0;
-    Serial.println("NEW CONTACT UUID");
     lcdKeypad.clear();
     lcdKeypad.print("New Contact");
     lcdKeypad.setCursor(0, 1);
@@ -656,7 +676,6 @@ const State STATE_NEW_CONTACT_UUID = {
 
 const State STATE_CONTACT_ADDED = {
     .enter = []() {
-      Serial.println("CONTACT ADDED");
       lcdKeypad.clear();
       lcdKeypad.print("Contact added!");
       stateTime = millis(); },
@@ -672,7 +691,6 @@ const State STATE_CONTACT_ADDED = {
 
 const State STATE_LIST_FULL = {
     .enter = []() {
-      Serial.println("LIST FULL");
       lcdKeypad.clear();
       lcdKeypad.print("Contact list");
       lcdKeypad.setCursor(0, 1);
@@ -690,7 +708,6 @@ const State STATE_LIST_FULL = {
 
 const State STATE_ABOUT_ME = {
     .enter = []() {
-      Serial.println("ABOUT ME");
       lcdKeypad.clear();
       lcdKeypad.print("Name: ");
       lcdKeypad.print(myContact.getName());
@@ -715,7 +732,6 @@ const State STATE_NEW_MESSAGE = {
 
     .enter = []() {
       menuCursor = 0;
-      Serial.println("NEW MESSAGE");
       lcdKeypad.clear();
       lcdKeypad.print("To: ");
       lcdKeypad.print(currentContact.getName());
@@ -781,7 +797,6 @@ const State STATE_NEW_MESSAGE = {
 
 const State STATE_MESSAGE_SENT = {
     .enter = []() {
-      Serial.println("MESSAGE SENT");
       lcdKeypad.clear();
       lcdKeypad.print("Message Sent!");
 #if ENABLE_MEMORY
@@ -808,7 +823,6 @@ const State STATE_MESSAGE_SENT = {
 
 const State STATE_MESSAGE_FAILED = {
     .enter = []() {
-      Serial.println("MESSAGE FAILED");
       lcdKeypad.clear();
       lcdKeypad.print("Message Failed!");
       stateTime = millis(); },
@@ -826,7 +840,6 @@ const State STATE_MESSAGE_FAILED = {
 const State STATE_MESSAGE_OPEN = {
     .enter = []() {
       bool from = memcmp(currentMessage.getFrom(), myContact.getUUID(), 5) == 0;
-    Serial.println("MESSAGE OPEN");
     lcdKeypad.clear();
     lcdKeypad.print(from ? "Sent: " : "From: ");
     lcdKeypad.print(from ? getContactFromUUID(currentMessage.getTo()) : getContactFromUUID(currentMessage.getFrom()));
@@ -845,7 +858,6 @@ const State STATE_MESSAGE_OPEN = {
 
 const State STATE_MESSAGE_RECEIVED = {
     .enter = []() {
-      Serial.println("NEW MESSAGE");
       lcdKeypad.clear();
       lcdKeypad.print("New Message!");
       lcdKeypad.setCursor(0, 1);

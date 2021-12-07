@@ -14,7 +14,7 @@ class Contact {
 
  private:
   unsigned char uuid[5];
-  char name[11];
+  char name[10];
 };
 
 #endif

@@ -1,429 +1,180 @@
 #include "Memory.h"
 
-#include <EEPROM.h>
 #include <Arduino.h>
-const int startofcontact = 21;
-const int startofmessage = 174;
-unsigned char arra [7]= {0xC0,0xFF,0xEE,0xFA,0xCE,0xCA,0x11};
-unsigned int offcounter = 0;
+#include <EEPROM.h>
 
-    Memory::Memory()
-    {
-      
-   
-      if (this->hasSchema()==true)
-      {
-        
-      }
-      else
-      {
-      setSchema();
-      this->clearContacts();
-      this->clearMessages();
-      }
-      
-      Contact node;
-      saveNodeInformation(node);
+const unsigned short INIT_FLAG = 0;
+const unsigned short CONTACT_NODE = 3;
+const unsigned short CONTACT_LIST_FLAG = 18;
+const unsigned short CONTACT_COUNT = 20;
+const unsigned short CONTACT_LIST = 21;
+const unsigned short MESSAGE_LIST_FLAG = 171;
+const unsigned short MESSAGE_COUNT = 173;
+const unsigned short MESSAGE_LIST = 174;
+const unsigned short OFFSET = 434;
 
-      //nodes contact
-     
-    }
-    Memory::Memory(Contact node)
-    {
-    
-      if (this->hasSchema()==true)
-      {
-        
-      }
-      else
-      {
-      setSchema();
-      this->clearContacts();
-      this->clearMessages();
-      
-      saveNodeInformation(node);
+Memory::Memory() {
+  if (hasSchema()) return;
 
-      //nodes contact
-      
-      
-      }
-       
-    }
-    unsigned char* Memory::getNodeUUID()
-    {
-      
-      unsigned char ptr[5];
-      for(unsigned int i  = 0; i<5;i++)
-      {
-        
-        ptr[i] = EEPROM.get((byte)(3+i),ptr[i]);
-        //Serial.println(EEPROM.get((byte)(3+i),ptr[i]));
-      }
-      unsigned char* ptr1 = ptr;
-      return ptr1;
-    }
-    char* Memory::getNodeName()
-    {
-      char ptr[10];
-      for(unsigned int i  = 0; i<10;i++)
-      {
-        
-          //Serial.println(x.read(8+i));
-           ptr[i] = EEPROM.get((byte)(8+i),ptr[i]);
-        
-          
-        
-      }
-      char* ptr1 = ptr;
-      return ptr1;
-    }
-    unsigned short Memory::getNumberContacts()
-    {
-      unsigned short i;
-      return EEPROM.get(20,i);
-    }
-    unsigned short Memory::getNumberMessages()
-    {
-      unsigned short i;
-      return EEPROM.get(173,i);
-    
-    }
-    Contact Memory::getContact(unsigned short index)
-    {
-      unsigned int count = 0;
-      unsigned char ptrid [5];
-       char ptrname[10];
-       Contact x;
-      if(index>EEPROM.read(20))
-      {
-        Contact y;
-        return y;
-      }
-      else
-      {
-      for (unsigned int i = 21; i <= ((EEPROM.read(20)-1)*15)+21;i+=15)
-      {
-        if(i==(((index-1)*15)+21))
-        {
-          Contact yo = EEPROM.get(i,x);
-          return yo;
-          /*for(unsigned int j = 0; j < 15;j++)
-          {
-            if(j<5)
-            {
-              ptrid[j]= EEPROM.get(i+j,ptrid[j]);
-              
-            }
-            else
-            {
-            ptrname[count]= EEPROM.get(i+j,ptrname[count]);
-            
-            count++;
-            }
-           
-          }*/
-        }
-      }
-      //char* ptrname1 = ptrname;
-      //unsigned char* ptrid1 = ptrid;
-      
-      //Contact f(ptrid1,ptrname1);
-      //Serial.println(f.getName());
-      
-      return;
-      }
-      
-    }
-    Message Memory::getMessage(unsigned short index)
-    {
-      unsigned int count=0;
-    
-      unsigned char ptrfrom[5];
-      unsigned char ptrto[5];
-      unsigned char leng;
-      unsigned short payload;
-      Message c;
-      Serial.println(index);
-      
-      if(index>(EEPROM.read(173)))
-      {
-         
-        Message y;
-      
-        return y;
-      }
-      else
-      {
-       
-      for (unsigned int i = 174; i <= (((EEPROM.read(173)-1)*13)+174);i+=13)
-      {
-       
-        if(i==((index-1)*13)+174)
-        {
-          EEPROM.get(i,c);
-          
-          return c;
-         /*for(unsigned int j = 0; j < 13;j++)
-           {
-            if(j<5)//from
-            {
-            ptrfrom[j]= EEPROM.get((byte)i+j,ptrfrom[j]);
-            
-            }
-            else if(j<10)//to
-            {
-             ptrto[count]= EEPROM.get((byte)i+j,ptrto[count]);
-            //*(ptrto+count)= x.read(index+i);
-            count++;
-            }
-            else if(j==10)//pay
-            {
-             payload |= EEPROM.read(i+j)<<8;
-            }
-            else if(j==11)
-            {
-             payload |= (byte)EEPROM.read(i+j);
-            }
-            else//length
-            {
-            leng = EEPROM.read(j+i);
-            }
-           
-          }*/
-        }
-      }
-      //unsigned char* to = ptrto;
-      //unsigned char* from = ptrfrom;
-      //Message y(from,to,payload,leng);
-      
-      }
-      return;
-    }
-    bool Memory::saveContact(Contact contact)
-    {
-      
-       int count = 0;
-      unsigned char* ptrid = contact.getUUID();
-      
-      char* ptrname = contact.getName();
-      
-      
-      unsigned int newspace = startofcontact+(EEPROM.read(20)*15);
-      if(10==EEPROM.read(20))
-      {
-        
-        return false;
-      }
-      else
-      {
-        EEPROM.put(newspace,contact);
-      /*for (unsigned int i = 0; i < 15;i++)
-      {
-        if(i<5)
-        {
-          EEPROM.put(i+newspace,*(ptrid+i));
-          
-          count = 0;
-        }
-        else
-        {
-          EEPROM.put(i+newspace,*(ptrname+count));
-          //
-          count++;
-        }
-      }*/
-         count = 1;
-         count = (EEPROM.get(20,count))+1;
-         EEPROM.put(20,count);
-         
-         
-        return true;
-      }
-     
-    }
-    void Memory::saveMessage(Message message)
-    {
-      
-      int count = 0;
-      unsigned char* ptrfrom = message.getFrom();
-      unsigned char* ptrto = message.getTo();
-      unsigned char leng = message.getLength();
-      unsigned short payload = message.getPayload();
-      unsigned int newspace = getMessagePointerOffset();
-      if(20==offcounter)
-      {
-        offcounter = 0;
-        newspace = getMessagePointerOffset();
-        offcounter = 1;
-      }
-      else
-      {
-        offcounter++;
-      }
-      EEPROM.put(newspace,message);
-      
-      /*for (unsigned int i = 0; i < 13;i++)
-      {
-        if(i<5)
-        {
-          EEPROM.put(i+newspace,*(ptrfrom+i));
-          
-          count = 0;
-        }
-        else if(i<10)
-        {
-          EEPROM.put(i+newspace,*(ptrto+count));
-          
-          count++;
-        }
-        else if(i==10)
-        {
-          EEPROM.put(i+newspace,(unsigned char)payload>>8);
-        }
-        else if(i==10)
-        {
-          EEPROM.put(i+newspace,(unsigned char)payload);
-        }
-        else
-        {
-          EEPROM.put(i+newspace,leng);
-        }
-      
-        
-        
-      }*/
-      if(20<=EEPROM.read(173))
-      {
-        
-      }
-      else
-      {
-        count = EEPROM.get(173,count)+1;
-        EEPROM.put(173,count);
-      }
-      
-    }
-    void Memory::saveNodeInformation(Contact contact)
-    {
-      unsigned char* ptr = contact.getUUID();
-      
-      for(unsigned int j  = 0; j<5;j++)
-      {
-        
-        EEPROM.put(3+j,*(ptr+j));
-        //Serial.println(EEPROM.read(3+j));
-      }
-      char* ptr1 = contact.getName();
-      for(int j  = 0; j<10;j++)
-      {
-        
-        
-        EEPROM.put(8+j,(byte)(*(ptr1+j)));
-        //Serial.println(EEPROM.read(8+j));
-        
-        
-        
-      }
-    }
-    void Memory::reset()
-    {
-      clearMessages();
-      clearContacts();
-    }
-       
+  // configure schema
+  setSchema();
 
-  //protected:
-    bool Memory::hasSchema()
-    {
-      bool corupt = false;
-        int count = 0;
-      for (unsigned int i = 0;i<173;i++)
-      {
-        if(i<3)
-        {
-          if(EEPROM.read(i)==arra[count])
-          {
-            
-          }
-          else
-          {
-            corupt = true;
-          }
-          count++;
-        }
-        else if(i<20&&i>17)
-        {
-          if(EEPROM.read(i)==arra[count])
-          {
-            
-          }
-          else
-          {
-            corupt = true;
-          }
-          count++;
-        }
-        else if(i>170)
-        {
-          if(EEPROM.read(i)==arra[count])
-          {
-            
-          }
-          else
-          {
-            corupt = true;
-          }
-          count++;
-        }
-      }
+  // clear node info
+  saveNodeInformation(Contact());
 
-      return !(corupt);
-    }
-    void Memory::setSchema()
-    {
-        int count = 0;
-      for (unsigned int i = 0;i<173;i++)
-      {
-        if(i<3)
-        {
-          EEPROM.put((byte)i,arra[count]);
-          count++;
-        }
-        else if(i<20&&i>17)
-        {
-          EEPROM.put((byte)i,arra[count]);
-          count++;
-        }
-        else if(i>170)
-        {
-          EEPROM.put((byte)i,arra[count]);
-          count++;
-        }
-      }
-    }
-    void Memory::clearMessages()
-    {
-         for(unsigned int i = 173; i<434; i++)
-      {
-        EEPROM.put((byte)i,(byte)0);
-      }
-    }
-    void Memory::clearContacts()
-    {
-      for(unsigned int i = 20; i<171; i++)
-      {
-        
-        
-          EEPROM.put((byte)i,(byte)0);
-        
-      }
-    }
-    unsigned short Memory::getMessagePointerOffset()
-    {
-      
-        
-        return startofmessage + (offcounter*13);
-      
-    
-    }
-    // Add as you see fit
+  // configure contacts and messages lists
+  clearContacts();
+  clearMessages();
+}
+
+Memory::Memory(Contact node) {
+  if (hasSchema()) return;
+
+  // configure schema
+  setSchema();
+
+  // write node info
+  saveNodeInformation(node);
+
+  // configure contacts and messages lists
+  clearContacts();
+  clearMessages();
+}
+
+unsigned char* Memory::getNodeUUID() {
+  Contact node;
+  EEPROM.get(CONTACT_NODE, node);
+  return node.getUUID();
+}
+
+char* Memory::getNodeName() {
+  Contact node;
+  EEPROM.get(CONTACT_NODE, node);
+  return node.getName();
+}
+
+unsigned short Memory::getNumberContacts() {
+  unsigned char count;
+  EEPROM.get(CONTACT_COUNT, count);
+  return count;
+}
+
+unsigned short Memory::getNumberMessages() {
+  unsigned char count;
+  EEPROM.get(MESSAGE_COUNT, count);
+  return count;
+}
+
+Contact Memory::getContact(unsigned short index) {
+  Contact contact;
+  EEPROM.get(CONTACT_LIST + index * sizeof(Contact), contact);
+  return contact;
+}
+
+Message Memory::getMessage(unsigned short index) {
+  Message message;
+  EEPROM.get(MESSAGE_LIST + index * sizeof(Message), message);
+  return message;
+}
+
+bool Memory::saveContact(Contact contact) {
+  unsigned short count = getNumberContacts();
+  Serial.print("Contacts: ");
+  Serial.println(count);
+  if (count >= MAX_CONTACTS) return false;
+
+  EEPROM.put(CONTACT_LIST + count * sizeof(Contact), contact);
+  EEPROM.put(CONTACT_COUNT, count + 1);
+  return true;
+}
+
+void Memory::saveMessage(Message message) {
+  unsigned short count = getNumberMessages();
+  unsigned short offset = getMessagePointerOffset();
+
+  EEPROM.put(MESSAGE_LIST + offset * sizeof(Message), message);
+
+  if (offset >= MAX_MESSAGES) offset = 0;
+  if (count < MAX_MESSAGES) EEPROM.put(MESSAGE_COUNT, count + 1);
+}
+
+void Memory::saveNodeInformation(Contact contact) {
+  EEPROM.put(CONTACT_NODE, contact);
+  Serial.println("Node information saved");
+  Serial.println(contact.getName());
+  Serial.println(getNodeName());
+}
+
+void Memory::reset() {
+  for (unsigned short i = 0; i <= OFFSET; i++) {
+    EEPROM.write(i, 0x0);
+  }
+}
+
+bool Memory::hasSchema() {
+  Serial.println("Checking schema");
+
+  unsigned char init_flag[3];
+  EEPROM.get(INIT_FLAG, init_flag);
+  if (init_flag[0] != 0xC0 || init_flag[1] != 0xFF || init_flag[2] != 0xEE) return false;
+
+  unsigned char contact_list_flag[2];
+  EEPROM.get(CONTACT_LIST_FLAG, contact_list_flag);
+  if (contact_list_flag[0] != 0xFA || contact_list_flag[1] != 0xCE) return false;
+
+  unsigned char message_list_flag[2];
+  EEPROM.get(MESSAGE_LIST_FLAG, message_list_flag);
+  if (message_list_flag[0] != 0xCA || message_list_flag[1] != 0x11) return false;
+
+  return true;
+}
+
+void Memory::setSchema() {
+  EEPROM.write(INIT_FLAG, 0xC0);
+  EEPROM.write(INIT_FLAG + 1, 0xFF);
+  EEPROM.write(INIT_FLAG + 2, 0xEE);
+
+  EEPROM.write(CONTACT_LIST_FLAG, 0xFA);
+  EEPROM.write(CONTACT_LIST_FLAG + 1, 0xCE);
+
+  EEPROM.write(MESSAGE_LIST_FLAG, 0xCA);
+  EEPROM.write(MESSAGE_LIST_FLAG + 1, 0x11);
+}
+
+void Memory::clearMessages() {
+  Message message;
+  for (unsigned char i = 0; i < MAX_MESSAGES; ++i) {
+    EEPROM.put(MESSAGE_LIST + i * sizeof(Message), message);
+  }
+  EEPROM.write(MESSAGE_COUNT, 0);
+}
+
+void Memory::clearContacts() {
+  Contact contact;
+  for (unsigned char i = 0; i < MAX_CONTACTS; ++i) {
+    EEPROM.put(CONTACT_LIST + i * sizeof(Contact), contact);
+  }
+  EEPROM.write(CONTACT_COUNT, 0);
+}
+
+unsigned short Memory::getMessagePointerOffset() {
+  unsigned char offset;
+  EEPROM.get(OFFSET, offset);
+  return offset;
+}
+
+void Memory::print() {
+  for (unsigned short i = 0; i <= OFFSET; ++i) {
+    if (i == CONTACT_NODE ||
+        i == CONTACT_LIST_FLAG ||
+        i == CONTACT_COUNT ||
+        i == CONTACT_LIST ||
+        i == MESSAGE_LIST_FLAG ||
+        i == MESSAGE_COUNT ||
+        i == MESSAGE_LIST ||
+        i == OFFSET)
+      Serial.println();
+    Serial.print(EEPROM.read(i), HEX);
+    Serial.print(" ");
+  }
+}

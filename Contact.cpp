@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-Contact::Contact() {}
+Contact::Contact() : uuid({0, 0, 0, 0, 0}), name("") {}
 
 Contact::Contact(unsigned char* givenUUID, char const* givenName) {
   setUUID(givenUUID);
@@ -21,11 +21,10 @@ void Contact::setUUID(unsigned char* givenUUID) {
 void Contact::setName(char const* givenName) {
   unsigned char i;
   for (i = 0; i < 10; ++i) {
+    name[i] = givenName[i];
     if (givenName[i] == '\0')
       break;
-    name[i] = givenName[i];
   }
-  name[i] = '\0';
 }
 
 void Contact::setName(char givenName) {
@@ -38,5 +37,14 @@ unsigned char* Contact::getUUID() {
 }
 
 char* Contact::getName() {
-  return name;
+  static char n[11];
+  unsigned char i;
+  for (i = 0; i < 10; ++i) {
+    if (name[i] == '\0') {
+      break;
+    }
+    n[i] = name[i];
+  }
+  n[i] = '\0';
+  return n;
 }

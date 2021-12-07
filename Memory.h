@@ -19,6 +19,7 @@ class Memory {
     void saveMessage(Message message);
     void saveNodeInformation(Contact contact);
     void reset();
+    void print();
     // Add as you see fit
 
   protected:
