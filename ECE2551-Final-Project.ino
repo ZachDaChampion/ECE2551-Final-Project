@@ -1,5 +1,5 @@
 #define ENABLE_MEMORY 1
-#define ENABLE_RADIO 0
+#define ENABLE_RADIO 1
 
 #ifdef ENABLE_RADIO
 #include <RF24.h>
