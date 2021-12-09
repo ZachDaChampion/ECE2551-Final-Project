@@ -78,24 +78,26 @@ Message Memory::getMessage(unsigned short index) {
 }
 
 bool Memory::saveContact(Contact contact) {
-  unsigned short count = getNumberContacts();
+  unsigned char count = getNumberContacts();
   Serial.print("Contacts: ");
   Serial.println(count);
   if (count >= MAX_CONTACTS) return false;
 
   EEPROM.put(CONTACT_LIST + count * sizeof(Contact), contact);
-  EEPROM.put(CONTACT_COUNT, count + 1);
+  EEPROM.put(CONTACT_COUNT, ++count);
   return true;
 }
 
 void Memory::saveMessage(Message message) {
-  unsigned short count = getNumberMessages();
-  unsigned short offset = getMessagePointerOffset();
+  unsigned char count = getNumberMessages();
+  unsigned char offset = getMessagePointerOffset();
 
   EEPROM.put(MESSAGE_LIST + offset * sizeof(Message), message);
 
   if (offset >= MAX_MESSAGES) offset = 0;
-  if (count < MAX_MESSAGES) EEPROM.put(MESSAGE_COUNT, count + 1);
+  else ++offset;
+  EEPROM.put(OFFSET, offset);
+  if (count < MAX_MESSAGES) EEPROM.put(MESSAGE_COUNT, ++count);
 }
 
 void Memory::saveNodeInformation(Contact contact) {
@@ -146,7 +148,7 @@ void Memory::clearMessages() {
   for (unsigned char i = 0; i < MAX_MESSAGES; ++i) {
     EEPROM.put(MESSAGE_LIST + i * sizeof(Message), message);
   }
-  EEPROM.write(MESSAGE_COUNT, 0);
+  EEPROM.write(MESSAGE_COUNT, 0x00);
 }
 
 void Memory::clearContacts() {
@@ -154,7 +156,7 @@ void Memory::clearContacts() {
   for (unsigned char i = 0; i < MAX_CONTACTS; ++i) {
     EEPROM.put(CONTACT_LIST + i * sizeof(Contact), contact);
   }
-  EEPROM.write(CONTACT_COUNT, 0);
+  EEPROM.write(CONTACT_COUNT, 0x00);
 }
 
 unsigned short Memory::getMessagePointerOffset() {

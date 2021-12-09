@@ -613,6 +613,8 @@ const State STATE_NEW_CONTACT_NAME = {
         stateTransition(STATE_LIST_FULL);
         return;
       }
+      for (unsigned char i = 0; i < 16; ++i)
+        menuInput[i] = '\0';
       menuChar = 'A';
       menuCursor = 0;
       menuInput[0] = 'A';
@@ -638,9 +640,10 @@ const State STATE_NEW_CONTACT_NAME = {
 
 const State STATE_NEW_CONTACT_UUID = {
     .enter = []() {
-    menuChar = 0x0;
+    menuCharUUID = 0x0;
     menuCursor = 0;
-    menuInputUUID[0] = 0x0;
+      for (unsigned char i = 0; i < 10; ++i)
+        menuInputUUID[i] = 0x0;
     lcdKeypad.clear();
     lcdKeypad.print("New Contact");
     lcdKeypad.setCursor(0, 1);
@@ -731,6 +734,8 @@ const State STATE_ABOUT_ME = {
 const State STATE_NEW_MESSAGE = {
 
     .enter = []() {
+      for (unsigned char i = 0; i < 16; ++i)
+        menuInput[i] = '\0';
       menuCursor = 0;
       lcdKeypad.clear();
       lcdKeypad.print("To: ");
@@ -767,6 +772,7 @@ const State STATE_NEW_MESSAGE = {
           // backspace 
         case LCDKeypad::Button::DOWN:
           if (menuCursor == 0) break;
+          menuInput[menuCursor] = '\0';
           --menuCursor;
           lcdKeypad.setCursor(menuCursor, 1);
           lcdKeypad.print(" ");
@@ -777,7 +783,14 @@ const State STATE_NEW_MESSAGE = {
         case LCDKeypad::Button::SELECT:{
           currentMessage = Message(myContact.getUUID(), currentContact.getUUID(), menuInput);
 
-          // send message
+          for (unsigned char i = 0; i < 5; ++i) {
+            Serial.print(currentMessage.getTo()[i], HEX);
+            Serial.print(" ");
+          }
+          Serial.println();
+
+// send message
+#if ENABLE_RADIO
           radio.stopListening();
           radio.openWritingPipe(currentMessage.getTo());
           bool report = radio.write(&incomingMessage, sizeof(incomingMessage));
@@ -787,6 +800,11 @@ const State STATE_NEW_MESSAGE = {
             stateTransition(STATE_MESSAGE_FAILED);
           radio.startListening();
           return;
+#else
+          
+            stateTransition(STATE_MESSAGE_SENT);
+            return;
+#endif
         } break;
 
         default: break;
@@ -799,6 +817,7 @@ const State STATE_MESSAGE_SENT = {
     .enter = []() {
       lcdKeypad.clear();
       lcdKeypad.print("Message Sent!");
+      tone(BUZZER_PIN, 1000, 100);
 #if ENABLE_MEMORY
       memory.saveMessage(currentMessage);
       updateMemory();
@@ -825,6 +844,7 @@ const State STATE_MESSAGE_FAILED = {
     .enter = []() {
       lcdKeypad.clear();
       lcdKeypad.print("Message Failed!");
+      tone(BUZZER_PIN, 1000, 100);
       stateTime = millis(); },
 
     .loop = []() {
@@ -864,6 +884,7 @@ const State STATE_MESSAGE_RECEIVED = {
       lcdKeypad.print("From: ");
       saveState = false;
       lcdKeypad.print(getContactFromUUID(incomingMessage.getFrom()));
+      tone(BUZZER_PIN, 1000, 100);
       stateTime = millis(); },
 
     .loop = []() {
