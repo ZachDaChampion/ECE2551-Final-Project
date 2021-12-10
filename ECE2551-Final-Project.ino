@@ -390,7 +390,9 @@ const State STATE_SETUP = {
       // handle text input
       loopTextInput(button, 6, 10); },
 
-    .exit = []() { lcdKeypad.noCursor(); },
+    .exit = []() { 
+      lcdKeypad.noCursor(); 
+      radio.openReadingPipe(1, myContact.getUUID()); },
 };
 
 // menu state
