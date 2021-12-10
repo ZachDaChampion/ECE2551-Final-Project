@@ -195,11 +195,6 @@ void radioInterruptHandler() {
     radio.read(&incomingMessage, sizeof(Message));
 
 #if ENABLE_MEMORY
-    Serial.println(F("received message"));
-    Serial.println(incomingMessage.getPayload(), BIN);
-    for (unsigned char i = 0; i < 5; i++)
-      Serial.print(incomingMessage.getFrom()[i], HEX);
-    Serial.println();
     memory.saveMessage(incomingMessage);
     updateMemory();
 #else
@@ -786,17 +781,12 @@ const State STATE_NEW_MESSAGE = {
         case LCDKeypad::Button::SELECT:{
           currentMessage = Message(myContact.getUUID(), currentContact.getUUID(), menuInput);
 
-          for (unsigned char i = 0; i < 5; ++i) {
-            Serial.print(currentMessage.getTo()[i], HEX);
-            Serial.print(" ");
-          }
-          Serial.println();
-
 // send message
 #if ENABLE_RADIO
           radio.stopListening();
           radio.openWritingPipe(currentMessage.getTo());
-          bool report = radio.write(&currentContact, sizeof(currentContact));
+          radio.writeFast(&currentMessage, sizeof(currentMessage));
+          bool report = radio.txStandBy(1000);
           if (report)
             stateTransition(STATE_MESSAGE_SENT);
           else
