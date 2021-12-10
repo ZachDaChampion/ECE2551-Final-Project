@@ -94,8 +94,8 @@ void Memory::saveMessage(Message message) {
 
   EEPROM.put(MESSAGE_LIST + offset * sizeof(Message), message);
 
+  ++offset;
   if (offset >= MAX_MESSAGES) offset = 0;
-  else ++offset;
   EEPROM.put(OFFSET, offset);
   if (count < MAX_MESSAGES) EEPROM.put(MESSAGE_COUNT, ++count);
 }
