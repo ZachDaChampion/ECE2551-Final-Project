@@ -173,10 +173,8 @@ void loop() {
 #if ENABLE_RADIO
   if (!radio.isChipConnected())
     Serial.println(F("radio is not connected!!"));
-  else if (state.loop)
-#else
-  if (state.loop)
 #endif
+  if (state.loop)
     state.loop();
 }
 
@@ -197,6 +195,11 @@ void radioInterruptHandler() {
     radio.read(&incomingMessage, sizeof(Message));
 
 #if ENABLE_MEMORY
+    Serial.println(F("received message"));
+    Serial.println(incomingMessage.getPayload(), BIN);
+    for (unsigned char i = 0; i < 5; i++)
+      Serial.print(incomingMessage.getFrom()[i], HEX);
+    Serial.println();
     memory.saveMessage(incomingMessage);
     updateMemory();
 #else
@@ -793,7 +796,7 @@ const State STATE_NEW_MESSAGE = {
 #if ENABLE_RADIO
           radio.stopListening();
           radio.openWritingPipe(currentMessage.getTo());
-          bool report = radio.write(&incomingMessage, sizeof(incomingMessage));
+          bool report = radio.write(&currentContact, sizeof(currentContact));
           if (report)
             stateTransition(STATE_MESSAGE_SENT);
           else
