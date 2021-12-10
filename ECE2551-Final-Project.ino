@@ -403,6 +403,7 @@ const char MENU_ITEMS[][17] = {
 const State STATE_MENU = {
 
     .enter = []() {
+      saveState = true;
       lcdKeypad.clear();
       lcdKeypad.print("Menu:");
       lcdKeypad.setCursor(0, 1);
@@ -887,5 +888,5 @@ const State STATE_MESSAGE_RECEIVED = {
           return;
         } },
 
-    .exit = []() { saveState = true; },
+    .exit = nullptr,
 };
