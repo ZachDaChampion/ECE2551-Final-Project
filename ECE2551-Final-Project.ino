@@ -686,7 +686,7 @@ const State STATE_CONTACT_ADDED = {
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
-      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+      if (millis() - stateTime > 2000 || button == LCDKeypad::Button::UP) {
         stateTransition(STATE_MENU);
         return;
       } },
@@ -703,7 +703,7 @@ const State STATE_LIST_FULL = {
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
-      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+      if (millis() - stateTime > 2000 || button == LCDKeypad::Button::UP) {
         stateTransition(STATE_MENU);
         return;
       } },
@@ -788,8 +788,7 @@ const State STATE_NEW_MESSAGE = {
 #if ENABLE_RADIO
           radio.stopListening();
           radio.openWritingPipe(currentMessage.getTo());
-          radio.writeFast(&currentMessage, sizeof(currentMessage));
-          bool report = radio.txStandBy(1000);
+          bool report = radio.write(&currentMessage, sizeof(currentMessage));
           if (report)
             stateTransition(STATE_MESSAGE_SENT);
           else
@@ -828,7 +827,7 @@ const State STATE_MESSAGE_SENT = {
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
-      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+      if (millis() - stateTime > 2000 || button == LCDKeypad::Button::UP) {
         stateTransition(STATE_MENU);
         return;
       } },
@@ -845,7 +844,7 @@ const State STATE_MESSAGE_FAILED = {
 
     .loop = []() {
       LCDKeypad::Button button = lcdKeypad.getButtonPress();
-      if (millis() - stateTime > 3000 || button == LCDKeypad::Button::UP) {
+      if (millis() - stateTime > 2000 || button == LCDKeypad::Button::UP) {
         stateTransition(STATE_MENU);
         return;
       } },
@@ -885,7 +884,7 @@ const State STATE_MESSAGE_RECEIVED = {
 
     .loop = []() {
         LCDKeypad::Button button = lcdKeypad.getButtonPress();
-        if (millis() - stateTime > 6000 || button == LCDKeypad::Button::UP) {
+        if (millis() - stateTime > 2000 || button == LCDKeypad::Button::UP) {
           stateTransition(prevState);
           return;
         } },
